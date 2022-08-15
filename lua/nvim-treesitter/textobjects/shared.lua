@@ -89,6 +89,34 @@ function M.textobject_at_point(query_string, pos, bufnr, opts)
           end
         end
       end
+    elseif opts.lookahead and opts.lookbehind then
+      local start_line, start_col, start_byte = m.node:start()
+      if start_line > row or start_line == row and start_col > col then
+        local length = ts_utils.node_length(m.node)
+        if
+          not lookahead_earliest_start
+          or lookahead_earliest_start > start_byte
+          or (lookahead_earliest_start == start_byte and lookahead_match_length < length)
+        then
+          lookahead_match_length = length
+          lookahead_largest_range = m
+          lookahead_earliest_start = start_byte
+        end
+      end
+
+      local start_line, start_col, start_byte = m.node:start()
+      if start_line < row or start_line == row and start_col < col then
+        local length = ts_utils.node_length(m.node)
+        if
+          not lookbehind_earliest_start
+          or lookbehind_earliest_start < start_byte
+          or (lookbehind_earliest_start == start_byte and lookbehind_match_length > length)
+        then
+          lookbehind_match_length = length
+          lookbehind_largest_range = m
+          lookbehind_earliest_start = start_byte
+        end
+      end
     elseif opts.lookahead then
       local start_line, start_col, start_byte = m.node:start()
       if start_line > row or start_line == row and start_col > col then
@@ -127,6 +155,16 @@ function M.textobject_at_point(query_string, pos, bufnr, opts)
       return bufnr, { start_range[1], start_range[2], node_range[3], node_range[4] }, smallest_range.node
     else
       return bufnr, { smallest_range.node:range() }, smallest_range.node
+    end
+  elseif lookahead_largest_range and lookbehind_largest_range then
+    local lookahead_range = { lookahead_largest_range.node:range() }
+    local lookbehind_range = { lookbehind_largest_range.node:range() }
+
+    if (math.abs(lookahead_range[1] - row) + math.abs(lookahead_range[2] - col)) >=
+         (math.abs(lookbehind_range[1] - row) + math.abs(lookbehind_range[2] - col)) then
+      return bufnr, lookbehind_range, lookbehind_largest_range.node
+    else
+      return bufnr, lookahead_range, lookahead_largest_range.node
     end
   elseif lookahead_largest_range then
     return bufnr, { lookahead_largest_range.node:range() }, lookahead_largest_range.node

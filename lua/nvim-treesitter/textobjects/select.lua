@@ -115,7 +115,7 @@ function M.detect_selection_mode(query_string, keymap_mode)
   local config = configs.get_module "textobjects.select"
   local selection_mode = config.selection_modes[query_string] or "v"
   if method == "visual" then
-    selection_mode = vim.fn.visualmode()
+    selection_mode = config.selection_modes[query_string] or vim.fn.visualmode()
   elseif method == "operator-pending" then
     local ctrl_v = vim.api.nvim_replace_termcodes("<c-v>", true, true, true)
     local t = {
