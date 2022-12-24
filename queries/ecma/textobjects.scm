@@ -38,6 +38,9 @@
 (for_in_statement
   body: (_)? @loop.inner) @loop.outer
 
+(for_statement
+  body: (_)? @loop.inner) @loop.outer
+
 (while_statement
   body: (_)? @loop.inner) @loop.outer
 
@@ -96,3 +99,9 @@
   . (_) @parameter.inner
   . ","? @_end
  (#make-range! "parameter.outer" @parameter.inner @_end))
+
+;; comment
+(comment) @comment.outer
+
+;; regex
+(regex (regex_pattern) @regex.inner) @regex.outer

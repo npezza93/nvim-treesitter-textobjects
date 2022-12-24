@@ -3,7 +3,17 @@ local parsers = require "nvim-treesitter.parsers"
 local queries = require "nvim-treesitter.query"
 local M = {}
 
-function M.make_attach(normal_mode_functions, submodule)
+local function make_repeatable(fn)
+  return function()
+    _G._nvim_treesitter_textobject_last_function = fn
+    vim.o.opfunc = "v:lua._nvim_treesitter_textobject_last_function"
+    vim.api.nvim_feedkeys("g@l", "n", false)
+  end
+end
+
+function M.make_attach(normal_mode_functions, submodule, keymap_modes, opts)
+  keymap_modes = keymap_modes or "n"
+  opts = opts or {}
   return function(bufnr, lang)
     lang = lang or parsers.get_buf_lang(bufnr)
     if not queries.get_query(lang, "textobjects") then
@@ -25,15 +35,25 @@ function M.make_attach(normal_mode_functions, submodule)
           mapping_description = function_description .. " " .. query_metadata
         end
 
-        vim.keymap.set("n", mapping, function()
+        local fn = function()
           require("nvim-treesitter.textobjects." .. submodule)[function_call](query)
-        end, { buffer = bufnr, silent = true, remap = false, desc = mapping_description })
+        end
+        if opts.repeatable then
+          fn = make_repeatable(fn)
+        end
+        vim.keymap.set(
+          keymap_modes,
+          mapping,
+          fn,
+          { buffer = bufnr, silent = true, remap = false, desc = mapping_description }
+        )
       end
     end
   end
 end
 
-function M.make_detach(normal_mode_functions, submodule)
+function M.make_detach(normal_mode_functions, submodule, keymap_modes)
+  keymap_modes = keymap_modes or "n"
   return function(bufnr)
     local config = configs.get_module("textobjects." .. submodule)
     local lang = parsers.get_buf_lang(bufnr)
@@ -54,7 +74,7 @@ function M.make_detach(normal_mode_functions, submodule)
           query = nil
         end
         if query then
-          vim.keymap.del("n", mapping, { buffer = bufnr })
+          vim.keymap.del(keymap_modes, mapping, { buffer = bufnr })
         end
       end
     end

@@ -1,25 +1,32 @@
 ;; functions
 (function_item
-  (_) @function.inner) @function.outer
+  body: (block . "{" . (_) @_start @_end (_)? @_end . "}"
+  (#make-range! "function.inner" @_start @_end))) @function.outer
 
 ;; quantifies as class(es)
 (struct_item
-  (_) @class.inner) @class.outer
+  body: (field_declaration_list . "{" . (_) @_start [(_)","]? @_end . "}"
+  (#make-range! "class.inner" @_start @_end))) @class.outer
 
 (enum_item
-  (_) @class.inner) @class.outer
+  body: (enum_variant_list . "{" . (_) @_start [(_)","]? @_end . "}"
+  (#make-range! "class.inner" @_start @_end))) @class.outer
 
 (union_item
-  (_) @class.inner) @class.outer
+  body: (field_declaration_list . "{" . (_) @_start [(_)","]? @_end . "}"
+  (#make-range! "class.inner" @_start @_end))) @class.outer
 
 (trait_item
-  (_) @class.inner) @class.outer
+  body: (declaration_list . "{" . (_) @_start @_end (_)? @_end . "}"
+  (#make-range! "class.inner" @_start @_end))) @class.outer
 
 (impl_item
-  (_) @class.inner) @class.outer
+  body: (declaration_list . "{" . (_) @_start @_end (_)? @_end . "}"
+  (#make-range! "class.inner" @_start @_end))) @class.outer
 
 (mod_item
-  (_) @class.inner) @class.outer
+  body: (declaration_list . "{" . (_) @_start @_end (_)? @_end . "}"
+  (#make-range! "class.inner" @_start @_end))) @class.outer
 
 ;; conditionals
 (if_expression
@@ -40,24 +47,11 @@
 
 (match_expression) @conditional.outer
 
-(if_let_expression
-  consequence: (block)?
-  @conditional.inner) @conditional.outer
-
-(if_let_expression
-  alternative: (else_clause (block) @conditional.inner))
-
-(if_let_expression
-  pattern: (_) @conditional.inner)
-
 ;; loops
 (loop_expression
   (_)? @loop.inner) @loop.outer
 
 (while_expression
-  (_)? @loop.inner) @loop.outer
-
-(while_let_expression
   (_)? @loop.inner) @loop.outer
 
 (for_expression
@@ -130,11 +124,3 @@
 ((type_arguments
   . (_) @parameter.inner . ","? @_end)
  (#make-range! "parameter.outer" @parameter.inner @_end))
-
-((meta_arguments
-  "," @_start . (_) @parameter.inner)
- (#make-range! "parameter.outer" @_start @parameter.inner))
-((meta_arguments
-  . (_) @parameter.inner . ","? @_end)
- (#make-range! "parameter.outer" @parameter.inner @_end))
-

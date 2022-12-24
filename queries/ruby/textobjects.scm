@@ -37,3 +37,9 @@
   (lambda_parameters)
   (argument_list)
 ] @parameter.outer
+
+; @comment
+(comment) @comment.outer
+
+; @regex
+(regex (string_content) @regex.inner) @regex.outer
