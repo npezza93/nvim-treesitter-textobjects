@@ -1,7 +1,6 @@
 local api = vim.api
 local configs = require "nvim-treesitter.configs"
 local parsers = require "nvim-treesitter.parsers"
-local queries = require "nvim-treesitter.query"
 
 local shared = require "nvim-treesitter.textobjects.shared"
 local ts_utils = require "nvim-treesitter.ts_utils"
@@ -95,12 +94,13 @@ local val_or_return = function(val, opts)
   end
 end
 
-function M.select_textobject(query_string, keymap_mode)
+function M.select_textobject(query_string, query_group, keymap_mode)
+  query_group = query_group or "textobjects"
   local lookahead = configs.get_module("textobjects.select").lookahead
   local lookbehind = configs.get_module("textobjects.select").lookbehind
   local surrounding_whitespace = configs.get_module("textobjects.select").include_surrounding_whitespace
   local bufnr, textobject =
-    shared.textobject_at_point(query_string, nil, nil, { lookahead = lookahead, lookbehind = lookbehind })
+    shared.textobject_at_point(query_string, query_group, nil, nil, { lookahead = lookahead, lookbehind = lookbehind })
   if textobject then
     local selection_mode = M.detect_selection_mode(query_string, keymap_mode)
     if
@@ -146,60 +146,72 @@ function M.detect_selection_mode(query_string, keymap_mode)
     selection_mode = t[vim.fn.mode(1)] or selection_mode
   end
 
-  local t = {
-    v = "charwise",
-    V = "linewise",
-    ["<c-v>"] = "blockwise",
-  }
-  return t[selection_mode]
+  return selection_mode
 end
 
+M.keymaps_per_buf = {}
+
 function M.attach(bufnr, lang)
-  local buf = bufnr or api.nvim_get_current_buf()
+  bufnr = bufnr or api.nvim_get_current_buf()
   local config = configs.get_module "textobjects.select"
-  lang = lang or parsers.get_buf_lang(buf)
+  lang = lang or parsers.get_buf_lang(bufnr)
 
   for mapping, query in pairs(config.keymaps) do
-    local desc
+    local desc, query_string, query_group
     if type(query) == "table" then
       desc = query.desc
-      query = query.query
+      query_string = query.query
+      query_group = query.query_group or "textobjects"
+    else
+      query_string = query
+      query_group = "textobjects"
     end
     if not desc then
-      desc = "Select textobject " .. query
+      desc = "Select textobject " .. query_string
     end
-    if not queries.get_query(lang, "textobjects") then
-      query = nil
+
+    local available_textobjects = shared.available_textobjects(lang, query_group)
+    local available = false
+    for _, available_textobject in ipairs(available_textobjects) do
+      if "@" .. available_textobject == query_string then
+        available = true
+        break
+      end
     end
-    if query then
-      --- Does not currently work in visual mode
-      --vim.keymap.set({ "o", "x" }, mapping, function()
-      --require("nvim-treesitter.textobjects.select").select_textobject(query)
-      --end, { buffer = buf, silent = true, remap = false, desc = desc })
-      local cmd_o = ":lua require'nvim-treesitter.textobjects.select'.select_textobject('" .. query .. "', 'o')<CR>"
-      api.nvim_buf_set_keymap(buf, "o", mapping, cmd_o, { silent = true, noremap = true, desc = desc })
-      local cmd_x = ":lua require'nvim-treesitter.textobjects.select'.select_textobject('" .. query .. "', 'x')<CR>"
-      api.nvim_buf_set_keymap(buf, "x", mapping, cmd_x, { silent = true, noremap = true, desc = desc })
+
+    if not available then
+      query_string = nil
+    end
+
+    if query_string then
+      for _, keymap_mode in ipairs { "o", "x" } do
+        local cmd = function()
+          M.select_textobject(query_string, query_group, keymap_mode)
+        end
+        local status, _ = pcall(
+          vim.keymap.set,
+          { keymap_mode },
+          mapping,
+          cmd,
+          { buffer = bufnr, silent = true, remap = false, desc = desc }
+        )
+        if status then
+          M.keymaps_per_buf[bufnr] = M.keymaps_per_buf[bufnr] or {}
+          table.insert(M.keymaps_per_buf[bufnr], { mode = keymap_mode, lhs = mapping })
+        end
+      end
     end
   end
 end
 
 function M.detach(bufnr)
-  local buf = bufnr or api.nvim_get_current_buf()
-  local config = configs.get_module "textobjects.select"
-  local lang = parsers.get_buf_lang(bufnr)
+  bufnr = bufnr or api.nvim_get_current_buf()
 
-  for mapping, query in pairs(config.keymaps) do
-    if not queries.get_query(lang, "textobjects") then
-      query = nil
-    end
-    if type(query) == "table" then
-      query = query.query
-    end
-    if query then
-      vim.keymap.del({ "o", "x" }, mapping, { buffer = buf })
-    end
+  for _, keymap in ipairs(M.keymaps_per_buf[bufnr] or {}) do
+    -- Even if it fails make it silent
+    pcall(vim.keymap.del, { keymap.mode }, keymap.lhs, { buffer = bufnr })
   end
+  M.keymaps_per_buf[bufnr] = nil
 end
 
 M.commands = {

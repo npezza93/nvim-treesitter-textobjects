@@ -1,11 +1,15 @@
-local queries = require "nvim-treesitter.query"
 local configs = require "nvim-treesitter.configs"
 local utils = require "nvim-treesitter.utils"
 
 local M = {}
 
 M.has_textobjects = function(lang)
-  return queries.has_query_files(lang, "textobjects")
+  if vim.treesitter.query.get_files then
+    return vim.treesitter.query.get_files(lang, "textobjects") ~= nil
+  else
+    -- deprecated since nvim 0.9
+    return vim.treesitter.query.get_query_files(lang, "textobjects") ~= nil
+  end
 end
 
 local function has_some_textobject_mapping(lang)
@@ -44,6 +48,8 @@ function M.init()
         goto_next_end = {},
         goto_previous_start = {},
         goto_previous_end = {},
+        goto_next = {},
+        goto_previous = {},
       },
       swap = {
         module_path = "nvim-treesitter.textobjects.swap",
@@ -57,13 +63,14 @@ function M.init()
         module_path = "nvim-treesitter.textobjects.lsp_interop",
         enable = false,
         border = "none",
+        floating_preview_opts = {},
         disable = {},
         is_supported = M.has_textobjects,
         peek_definition_code = {},
       },
     },
   }
-  for _, m in ipairs { "select", "move", "swap", "lsp_interop" } do
+  for _, m in ipairs { "select", "move", "repeatable_move", "swap", "lsp_interop" } do
     utils.setup_commands("textobjects." .. m, require("nvim-treesitter.textobjects." .. m).commands)
   end
 end

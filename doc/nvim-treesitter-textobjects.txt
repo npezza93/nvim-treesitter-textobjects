@@ -157,6 +157,8 @@ LSP interop~
 Supported options:
 - enable: `true` or `false`.
 - border: 'none' (default), 'single', 'double', 'rounded', 'solid', 'shadow'.
+  Deprecated. Should be placed in `floating_preview_opts` like so: `floating_preview_opts = {border = 'rounded'}`.
+- floating_preview_opts: {} (default). Options to pass to `vim.lsp.util.open_floating_preview`. For example, `maximum_height`.
 >
   lua <<EOF
   require'nvim-treesitter.configs'.setup {
@@ -164,6 +166,7 @@ Supported options:
       lsp_interop = {
         enable = true,
         border = "none",
+        floating_preview_opts = {},
         peek_definition_code = {
           ["<leader>df"] = "@function.outer",
           ["<leader>dF"] = "@class.outer",

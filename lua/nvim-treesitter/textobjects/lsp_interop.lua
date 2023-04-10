@@ -45,7 +45,8 @@ function M.preview_location(location, context)
   end
 
   local config = configs.get_module "textobjects.lsp_interop"
-  local opts = {}
+  local opts = config.floating_preview_opts or {}
+
   if config.border ~= "none" then
     opts.border = config.border
   end
@@ -56,8 +57,9 @@ function M.preview_location(location, context)
   return preview_buf, preview_win
 end
 
-function M.make_preview_location_callback(textobject, context)
-  local context = context or 0
+function M.make_preview_location_callback(query_string, query_group, context)
+  query_group = query_group or "textobjects"
+  context = context or 0
   local callback = function(err, method, result)
     if err then
       error(tostring(err))
@@ -80,7 +82,7 @@ function M.make_preview_location_callback(textobject, context)
     vim.fn.bufload(buf)
 
     local _, textobject_at_definition =
-      shared.textobject_at_point(textobject, { range.start.line + 1, range.start.character }, buf)
+      shared.textobject_at_point(query_string, query_group, { range.start.line + 1, range.start.character }, buf)
 
     if textobject_at_definition then
       context = textobject_at_definition
@@ -100,18 +102,24 @@ function M.make_preview_location_callback(textobject, context)
   return vim.schedule_wrap(signature_handler)
 end
 
-function M.peek_definition_code(textobject, lsp_request, context)
+function M.peek_definition_code(query_string, query_group, lsp_request, context)
+  query_group = query_group or "textobjects"
   lsp_request = lsp_request or "textDocument/definition"
   if vim.tbl_contains(vim.api.nvim_list_wins(), floating_win) then
     vim.api.nvim_set_current_win(floating_win)
   else
     local params = vim.lsp.util.make_position_params()
-    return vim.lsp.buf_request(0, lsp_request, params, M.make_preview_location_callback(textobject, context))
+    return vim.lsp.buf_request(
+      0,
+      lsp_request,
+      params,
+      M.make_preview_location_callback(query_string, query_group, context)
+    )
   end
 end
 
 M.attach = attach.make_attach(nx_mode_functions, "lsp_interop", { "n", "x" })
-M.detach = attach.make_detach(nx_mode_functions, "lsp_interop", { "n", "x" })
+M.detach = attach.make_detach "lsp_interop"
 M.commands = {
   TSTextobjectPeekDefinitionCode = {
     run = M.peek_definition_code,

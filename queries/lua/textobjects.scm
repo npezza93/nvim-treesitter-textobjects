@@ -44,6 +44,11 @@
 
 (function_definition body: (_) @function.inner)
 
+; return
+
+(return_statement
+  (_)? @return.inner) @return.outer
+
 ; loop
 
 [
@@ -89,6 +94,16 @@
   "," @_start
   . (_) @parameter.inner
  (#make-range! "parameter.outer" @_start @parameter.inner))
+
+; number
+(number) @number.inner
+
+(assignment_statement
+ (variable_list) @assignment.lhs
+ (expression_list) @assignment.inner @assignment.rhs) @assignment.outer
+
+(assignment_statement
+ (variable_list) @assignment.inner)
 
 ; scopename
 
